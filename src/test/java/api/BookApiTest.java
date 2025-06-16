@@ -22,7 +22,7 @@ public class BookApiTest {
 
 	@BeforeAll
     public static void setup() {
-        RestAssured.baseURI = "http://localhost:9090"; // change if deployed elsewhere
+        RestAssured.baseURI = "http://localhost:8080"; // change if deployed elsewhere
     }
 
     @Test
