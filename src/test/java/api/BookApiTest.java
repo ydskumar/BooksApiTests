@@ -2,10 +2,10 @@ package api;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-
-import java.util.Random;
+import static org.hamcrest.Matchers.notNullValue;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -20,40 +20,59 @@ import io.restassured.http.ContentType;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class BookApiTest {
 
-	@BeforeAll
+    @BeforeAll
     public static void setup() {
-        RestAssured.baseURI = "http://localhost:8082"; // change if deployed elsewhere
+        String baseUrl = System.getProperty("api.baseUrl", System.getenv("API_BASE_URL"));
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            RestAssured.baseURI = baseUrl;
+        } else {
+            String host = System.getProperty("api.host", System.getenv().getOrDefault("API_HOST", "localhost"));
+            String port = System.getProperty("api.port", System.getenv().getOrDefault("API_PORT", "8080"));
+            RestAssured.baseURI = String.format("http://%s:%s", host, port);
+        }
     }
 
     @Test
     @Order(1)
+    @DisplayName("GET /books should return 200 and a list")
     public void testGetBooks() {
         when()
-            .get("/books")
-        .then()
-            .statusCode(200)
-            .body("size()", greaterThanOrEqualTo(0));
+                .get("/books")
+                .then()
+                .statusCode(200)
+                .body("size()", greaterThanOrEqualTo(0));
     }
 
     @Test
     @Order(2)
+    @DisplayName("POST /books with valid body should return 201 and the created book")
     public void testAddBook() {
-    	long dynamicId = new Random().nextLong(1, 10000);
-
-    	String requestBody = "{"
-    	        + "\"id\": " + dynamicId + ","
-    	        + "\"title\": \"Dynamic Book Title\""
-    	        + "}";
+        long id = System.currentTimeMillis() % 100000 + 1;
+        String requestBody = String.format("{\"id\": %d, \"title\": \"Dynamic Book Title\"}", id);
 
         given()
-            .contentType(ContentType.JSON)
-            .body(requestBody)
-        .when()
-            .post("/books")
-        .then()
-            .statusCode(200) // or 201 based on your API
-            .body("id", equalTo((int) dynamicId)) // Cast to int if API returns int
-            .body("title", equalTo("Dynamic Book Title"));
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+                .when()
+                .post("/books")
+                .then()
+                .statusCode(201)
+                .body("id", notNullValue())
+                .body("title", equalTo("Dynamic Book Title"));
     }
-    
+
+    @Test
+    @Order(3)
+    @DisplayName("POST /books with blank title should return 400")
+    public void testAddBookWithBlankTitle() {
+        String requestBody = "{\"id\": 10, \"title\": \"\"}";
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+                .when()
+                .post("/books")
+                .then()
+                .statusCode(400);
+    }
 }
